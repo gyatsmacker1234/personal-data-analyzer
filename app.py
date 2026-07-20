@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 import json
 import os
 
+# -----------------------------
+# Permanent History Storage
+# -----------------------------
+
 HISTORY_FILE = "history.json"
 
 def load_history():
@@ -99,4 +103,31 @@ if st.button("Clear History"):
 # Display Graph
 # -----------------------------
 
-if
+if len(history) > 0:
+    st.subheader("📈 Progress Over Time")
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot([day["study"] for day in history], label="Study Hours")
+    ax.plot([day["sleep"] for day in history], label="Sleep Hours")
+    ax.plot([day["mood"] for day in history], label="Mood")
+    ax.plot([day["screen"] for day in history], label="Screen Time")
+    ax.plot([day["tasks"] for day in history], label="Tasks Completed")
+
+    ax.set_xlabel("Day")
+    ax.set_ylabel("Values")
+    ax.legend()
+    st.pyplot(fig)
+
+# -----------------------------
+# Recommendations
+# -----------------------------
+
+if len(history) > 0:
+    st.subheader("⭐ Personalized Recommendations")
+    recs = give_recommendations()
+
+    if len(recs) == 0:
+        st.write("You're doing great! No recommendations needed.")
+    else:
+        for r in recs:
+            st.write("- " + r)
