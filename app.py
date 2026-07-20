@@ -2,6 +2,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import json
 import os
+from datetime import datetime, timedelta
 
 # -----------------------------
 # Permanent History Storage
@@ -10,7 +11,6 @@ import os
 HISTORY_FILE = "history.json"
 
 def load_history():
-    """Load history from JSON file."""
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, "r") as f:
@@ -20,12 +20,10 @@ def load_history():
     return []
 
 def save_history(history):
-    """Save history to JSON file."""
     with open(HISTORY_FILE, "w") as f:
         json.dump(history, f)
 
 def clear_history():
-    """Clear history file."""
     if os.path.exists(HISTORY_FILE):
         os.remove(HISTORY_FILE)
 
@@ -65,12 +63,83 @@ def give_recommendations():
     return recs
 
 # -----------------------------
+# Habit Score
+# -----------------------------
+
+def habit_score(day):
+    score = (
+        day["study"] * 10 +
+        day["sleep"] * 8 +
+        day["mood"] * 5 -
+        day["screen"] * 4 +
+        day["tasks"] * 6
+    )
+    return max(0, min(score, 100))
+
+# -----------------------------
+# Weekly Summary
+# -----------------------------
+
+def weekly_summary():
+    if len(history) == 0:
+        return None
+
+    last_7_days = history[-7:]
+
+    summary = {
+        "study": sum(d["study"] for d in last_7_days) / len(last_7_days),
+        "sleep": sum(d["sleep"] for d in last_7_days) / len(last_7_days),
+        "mood": sum(d["mood"] for d in last_7_days) / len(last_7_days),
+        "screen": sum(d["screen"] for d in last_7_days) / len(last_7_days),
+        "tasks": sum(d["tasks"] for d in last_7_days) / len(last_7_days),
+        "habit_score": sum(habit_score(d) for d in last_7_days) / len(last_7_days)
+    }
+
+    return summary
+
+# -----------------------------
+# Streak Tracker
+# -----------------------------
+
+def streak_tracker():
+    if len(history) == 0:
+        return 0, 0
+
+    streak = 1
+    longest = 1
+
+    for i in range(len(history) - 1, 0, -1):
+        today = history[i]["date"]
+        prev = history[i - 1]["date"]
+
+        if (datetime.fromisoformat(today) - datetime.fromisoformat(prev)).days == 1:
+            streak += 1
+        else:
+            break
+
+    # Calculate longest streak
+    temp = 1
+    for i in range(len(history) - 1, 0, -1):
+        today = history[i]["date"]
+        prev = history[i - 1]["date"]
+
+        if (datetime.fromisoformat(today) - datetime.fromisoformat(prev)).days == 1:
+            temp += 1
+        else:
+            longest = max(longest, temp)
+            temp = 1
+
+    longest = max(longest, temp)
+
+    return streak, longest
+
+# -----------------------------
 # Streamlit UI
 # -----------------------------
 
 st.title("📊 Personal Data Analyzer")
 
-st.write("Track your daily habits and get personalized recommendations.")
+st.write("Track your daily habits and get personalized insights.")
 
 # Inputs
 study = st.number_input("Study hours", min_value=0.0, max_value=24.0, step=0.5)
@@ -86,7 +155,8 @@ if st.button("Save Day"):
         "sleep": sleep,
         "mood": mood,
         "screen": screen,
-        "tasks": tasks
+        "tasks": tasks,
+        "date": datetime.now().date().isoformat()
     }
     history.append(day)
     save_history(history)
@@ -117,6 +187,30 @@ if len(history) > 0:
     ax.set_ylabel("Values")
     ax.legend()
     st.pyplot(fig)
+
+# -----------------------------
+# Weekly Summary Display
+# -----------------------------
+
+summary = weekly_summary()
+if summary:
+    st.subheader("📅 Weekly Summary (Last 7 Days)")
+    st.write(f"**Average Study:** {summary['study']:.2f} hrs")
+    st.write(f"**Average Sleep:** {summary['sleep']:.2f} hrs")
+    st.write(f"**Average Mood:** {summary['mood']:.2f}/10")
+    st.write(f"**Average Screen Time:** {summary['screen']:.2f} hrs")
+    st.write(f"**Average Tasks:** {summary['tasks']:.2f}")
+    st.write(f"**Average Habit Score:** {summary['habit_score']:.2f}/100")
+
+# -----------------------------
+# Streak Tracker Display
+# -----------------------------
+
+if len(history) > 0:
+    streak, longest = streak_tracker()
+    st.subheader("🔥 Streak Tracker")
+    st.write(f"**Current Streak:** {streak} days")
+    st.write(f"**Longest Streak:** {longest} days")
 
 # -----------------------------
 # Recommendations
