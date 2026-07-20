@@ -1,109 +1,102 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import json
+import os
 
-# -----------------------------
-# PERSISTENT DATA STORAGE
-# -----------------------------
+HISTORY_FILE = "history.json"
+
+def load_history():
+    """Load history from JSON file."""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_history(history):
+    """Save history to JSON file."""
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history, f)
+
+def clear_history():
+    """Clear history file."""
+    if os.path.exists(HISTORY_FILE):
+        os.remove(HISTORY_FILE)
+
+# Initialize session state
 if "history" not in st.session_state:
-    st.session_state.history = []
+    st.session_state.history = load_history()
 
 history = st.session_state.history
 
-
 # -----------------------------
-# FUNCTIONS FROM YOUR KAGGLE APP
+# Helper Functions
 # -----------------------------
 
-def average_study(history):
-    return sum(day["study"] for day in history) / len(history)
+def average(key):
+    if len(history) == 0:
+        return 0
+    return sum(day[key] for day in history) / len(history)
 
-def average_sleep(history):
-    return sum(day["sleep"] for day in history) / len(history)
-
-def average_mood(history):
-    return sum(day["mood"] for day in history) / len(history)
-
-def average_screen(history):
-    return sum(day["screen"] for day in history) / len(history)
-
-def average_tasks(history):
-    return sum(day["tasks"] for day in history) / len(history)
-
-def give_recommendations(history):
+def give_recommendations():
     recs = []
-    if average_sleep(history) < 7:
+
+    if average("sleep") < 7:
         recs.append("Try to get at least 7 hours of sleep.")
-    if average_study(history) < 2:
+
+    if average("study") < 2:
         recs.append("Increase study time to stay consistent.")
-    if average_mood(history) < 5:
+
+    if average("mood") < 5:
         recs.append("Take breaks and do something relaxing.")
-    if average_screen(history) > 5:
+
+    if average("screen") > 5:
         recs.append("Reduce screen time to avoid burnout.")
-    if average_tasks(history) < 3:
+
+    if average("tasks") < 3:
         recs.append("Aim to complete more tasks each day.")
+
     return recs
 
-def plot_combined(history):
-    days = list(range(1, len(history) + 1))
-
-    study = [day["study"] for day in history]
-    sleep = [day["sleep"] for day in history]
-    mood = [day["mood"] for day in history]
-    screen = [day["screen"] for day in history]
-    tasks = [day["tasks"] for day in history]
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    ax.plot(days, study, marker='o', linewidth=3, color='red', label="Study Hours")
-    ax.plot(days, sleep, marker='o', linewidth=3, color='blue', label="Sleep Hours")
-    ax.plot(days, mood, marker='o', linewidth=3, color='green', label="Mood Rating")
-    ax.plot(days, screen, marker='o', linewidth=3, color='purple', label="Screen Time")
-    ax.plot(days, tasks, marker='o', linewidth=3, color='orange', label="Tasks Completed")
-
-    ax.set_title("Combined Productivity Trends")
-    ax.set_xlabel("Day")
-    ax.set_ylabel("Values")
-    ax.grid(True)
-    ax.legend()
-
-    return fig
-
 # -----------------------------
-# STREAMLIT UI
+# Streamlit UI
 # -----------------------------
 
-st.title("Personal Data Analyzer")
+st.title("📊 Personal Data Analyzer")
 
-st.write("Enter your daily data below:")
+st.write("Track your daily habits and get personalized recommendations.")
 
-study = st.number_input("Study hours", min_value=0.0, step=0.5)
-sleep = st.number_input("Sleep hours", min_value=0.0, step=0.5)
-mood = st.slider("Mood rating", 1, 10)
-screen = st.number_input("Screen time (hours)", min_value=0.0, step=0.5)
-tasks = st.number_input("Tasks completed", min_value=0, step=1)
+# Inputs
+study = st.number_input("Study hours", min_value=0.0, max_value=24.0, step=0.5)
+sleep = st.number_input("Sleep hours", min_value=0.0, max_value=24.0, step=0.5)
+mood = st.slider("Mood (1–10)", 1, 10)
+screen = st.number_input("Screen time (hours)", min_value=0.0, max_value=24.0, step=0.5)
+tasks = st.number_input("Tasks completed", min_value=0, max_value=20, step=1)
 
+# Save Day Button
 if st.button("Save Day"):
-    history.append({
+    day = {
         "study": study,
         "sleep": sleep,
         "mood": mood,
         "screen": screen,
         "tasks": tasks
-    })
+    }
+    history.append(day)
+    save_history(history)
     st.success("Day saved!")
 
-if len(history) > 0:
-    st.subheader("Averages")
-    st.write("Average Study:", round(average_study(history), 2))
-    st.write("Average Sleep:", round(average_sleep(history), 2))
-    st.write("Average Mood:", round(average_mood(history), 2))
-    st.write("Average Screen:", round(average_screen(history), 2))
-    st.write("Average Tasks:", round(average_tasks(history), 2))
+# Clear History Button
+if st.button("Clear History"):
+    clear_history()
+    st.session_state.history = []
+    history = []
+    st.success("History cleared!")
 
-    st.subheader("Recommendations")
-    for r in give_recommendations(history):
-        st.write("- " + r)
+# -----------------------------
+# Display Graph
+# -----------------------------
 
-    st.subheader("Graph")
-    fig = plot_combined(history)
-    st.pyplot(fig)
+if
