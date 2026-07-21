@@ -1,227 +1,99 @@
 import streamlit as st
+import numpy as np
 import matplotlib.pyplot as plt
-import json
-import os
-from datetime import datetime, timedelta
+
+st.set_page_config(page_title="Smart Habit Analyzer", layout="wide")
+
+st.title("🧠 Smart Habit Analyzer — Advanced Edition")
 
 # -----------------------------
-# Permanent History Storage
+# Sidebar Inputs
 # -----------------------------
+st.sidebar.header("Habit Variables")
 
-HISTORY_FILE = "history.json"
-
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, "r") as f:
-                return json.load(f)
-        except:
-            return []
-    return []
-
-def save_history(history):
-    with open(HISTORY_FILE, "w") as f:
-        json.dump(history, f)
-
-def clear_history():
-    if os.path.exists(HISTORY_FILE):
-        os.remove(HISTORY_FILE)
-
-# Initialize session state
-if "history" not in st.session_state:
-    st.session_state.history = load_history()
-
-history = st.session_state.history
+difficulty = st.sidebar.slider("Difficulty", 1, 10, 5)
+reward = st.sidebar.slider("Reward", 1, 10, 7)
+consistency = st.sidebar.slider("Consistency", 1, 10, 6)
+time_cost = st.sidebar.slider("Time Cost", 1, 10, 4)
+motivation = st.sidebar.slider("Motivation", 1, 10, 6)
+friction = st.sidebar.slider("Friction", 1, 10, 3)
 
 # -----------------------------
-# Helper Functions
+# Computation
 # -----------------------------
+def compute_scores():
+    d = difficulty
+    r = reward
+    c = consistency
+    t = time_cost
+    m = motivation
+    f = friction
 
-def average(key):
-    if len(history) == 0:
-        return 0
-    return sum(day[key] for day in history) / len(history)
+    habit_strength = (r*1.5 + c*2 + m*1.2) - (d*1.3 + t*1.1 + f*1.4)
+    habit_strength = max(0, min(100, habit_strength * 3))
 
-def give_recommendations():
-    recs = []
+    success_prob = max(0, min(100, (c*2 + m*1.5 - f*1.2) * 4))
 
-    if average("sleep") < 7:
-        recs.append("Try to get at least 7 hours of sleep.")
+    difficulty_penalty = d * 10
 
-    if average("study") < 2:
-        recs.append("Increase study time to stay consistent.")
+    return habit_strength, success_prob, difficulty_penalty
 
-    if average("mood") < 5:
-        recs.append("Take breaks and do something relaxing.")
-
-    if average("screen") > 5:
-        recs.append("Reduce screen time to avoid burnout.")
-
-    if average("tasks") < 3:
-        recs.append("Aim to complete more tasks each day.")
-
-    return recs
+habit_strength, success_prob, difficulty_penalty = compute_scores()
 
 # -----------------------------
-# Habit Score
+# Main Display
 # -----------------------------
+col1, col2 = st.columns(2)
 
-def habit_score(day):
-    score = (
-        day["study"] * 10 +
-        day["sleep"] * 8 +
-        day["mood"] * 5 -
-        day["screen"] * 4 +
-        day["tasks"] * 6
-    )
-    return max(0, min(score, 100))
+with col1:
+    st.subheader("📊 Habit Scores")
+    st.write(f"**Habit Strength:** {habit_strength:.1f}/100")
+    st.write(f"**Success Probability:** {success_prob:.1f}%")
+    st.write(f"**Difficulty Penalty:** {difficulty_penalty:.1f}")
 
-# -----------------------------
-# Weekly Summary
-# -----------------------------
-
-def weekly_summary():
-    if len(history) == 0:
-        return None
-
-    last_7_days = history[-7:]
-
-    summary = {
-        "study": sum(d["study"] for d in last_7_days) / len(last_7_days),
-        "sleep": sum(d["sleep"] for d in last_7_days) / len(last_7_days),
-        "mood": sum(d["mood"] for d in last_7_days) / len(last_7_days),
-        "screen": sum(d["screen"] for d in last_7_days) / len(last_7_days),
-        "tasks": sum(d["tasks"] for d in last_7_days) / len(last_7_days),
-        "habit_score": sum(habit_score(d) for d in last_7_days) / len(last_7_days)
-    }
-
-    return summary
-
-# -----------------------------
-# Streak Tracker
-# -----------------------------
-
-def streak_tracker():
-    if len(history) == 0:
-        return 0, 0
-
-    streak = 1
-    longest = 1
-
-    for i in range(len(history) - 1, 0, -1):
-        today = history[i]["date"]
-        prev = history[i - 1]["date"]
-
-        if (datetime.fromisoformat(today) - datetime.fromisoformat(prev)).days == 1:
-            streak += 1
-        else:
-            break
-
-    # Calculate longest streak
-    temp = 1
-    for i in range(len(history) - 1, 0, -1):
-        today = history[i]["date"]
-        prev = history[i - 1]["date"]
-
-        if (datetime.fromisoformat(today) - datetime.fromisoformat(prev)).days == 1:
-            temp += 1
-        else:
-            longest = max(longest, temp)
-            temp = 1
-
-    longest = max(longest, temp)
-
-    return streak, longest
-
-# -----------------------------
-# Streamlit UI
-# -----------------------------
-
-st.title("📊 Personal Data Analyzer")
-
-st.write("Track your daily habits and get personalized insights.")
-
-# Inputs
-study = st.number_input("Study hours", min_value=0.0, max_value=24.0, step=0.5)
-sleep = st.number_input("Sleep hours", min_value=0.0, max_value=24.0, step=0.5)
-mood = st.slider("Mood (1–10)", 1, 10)
-screen = st.number_input("Screen time (hours)", min_value=0.0, max_value=24.0, step=0.5)
-tasks = st.number_input("Tasks completed", min_value=0, max_value=20, step=1)
-
-# Save Day Button
-if st.button("Save Day"):
-    day = {
-        "study": study,
-        "sleep": sleep,
-        "mood": mood,
-        "screen": screen,
-        "tasks": tasks,
-        "date": datetime.now().date().isoformat()
-    }
-    history.append(day)
-    save_history(history)
-    st.success("Day saved!")
-
-# Clear History Button
-if st.button("Clear History"):
-    clear_history()
-    st.session_state.history = []
-    history = []
-    st.success("History cleared!")
-
-# -----------------------------
-# Display Graph
-# -----------------------------
-
-if len(history) > 0:
-    st.subheader("📈 Progress Over Time")
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot([day["study"] for day in history], label="Study Hours")
-    ax.plot([day["sleep"] for day in history], label="Sleep Hours")
-    ax.plot([day["mood"] for day in history], label="Mood")
-    ax.plot([day["screen"] for day in history], label="Screen Time")
-    ax.plot([day["tasks"] for day in history], label="Tasks Completed")
-
-    ax.set_xlabel("Day")
-    ax.set_ylabel("Values")
-    ax.legend()
-    st.pyplot(fig)
-
-# -----------------------------
-# Weekly Summary Display
-# -----------------------------
-
-summary = weekly_summary()
-if summary:
-    st.subheader("📅 Weekly Summary (Last 7 Days)")
-    st.write(f"**Average Study:** {summary['study']:.2f} hrs")
-    st.write(f"**Average Sleep:** {summary['sleep']:.2f} hrs")
-    st.write(f"**Average Mood:** {summary['mood']:.2f}/10")
-    st.write(f"**Average Screen Time:** {summary['screen']:.2f} hrs")
-    st.write(f"**Average Tasks:** {summary['tasks']:.2f}")
-    st.write(f"**Average Habit Score:** {summary['habit_score']:.2f}/100")
-
-# -----------------------------
-# Streak Tracker Display
-# -----------------------------
-
-if len(history) > 0:
-    streak, longest = streak_tracker()
-    st.subheader("🔥 Streak Tracker")
-    st.write(f"**Current Streak:** {streak} days")
-    st.write(f"**Longest Streak:** {longest} days")
-
-# -----------------------------
-# Recommendations
-# -----------------------------
-
-if len(history) > 0:
-    st.subheader("⭐ Personalized Recommendations")
-    recs = give_recommendations()
-
-    if len(recs) == 0:
-        st.write("You're doing great! No recommendations needed.")
+    # Color bar
+    if habit_strength > 70:
+        color = "green"
+    elif habit_strength > 40:
+        color = "yellow"
     else:
-        for r in recs:
-            st.write("- " + r)
+        color = "red"
+
+    st.markdown(
+        f"""
+        <div style='width:100%;height:20px;background:{color};
+                    border-radius:5px;margin-top:10px;'></div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Recommendation
+    st.subheader("📌 Recommendation")
+    if habit_strength < 30:
+        st.write("This habit is weak. Reduce friction or difficulty.")
+    elif habit_strength < 60:
+        st.write("Moderate habit. Increase consistency or motivation.")
+    else:
+        st.write("Strong habit! Keep going.")
+
+# -----------------------------
+# Radar Chart
+# -----------------------------
+with col2:
+    st.subheader("📈 Habit Profile Radar Chart")
+
+    labels = ["Difficulty", "Reward", "Consistency", "Time Cost", "Motivation", "Friction"]
+    values = [difficulty, reward, consistency, time_cost, motivation, friction]
+
+    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
+    values = np.concatenate((values, [values[0]]))
+    angles = np.concatenate((angles, [angles[0]]))
+
+    fig = plt.figure(figsize=(6,6))
+    ax = fig.add_subplot(111, polar=True)
+    ax.plot(angles, values, "o-", linewidth=2)
+    ax.fill(angles, values, alpha=0.25)
+    ax.set_thetagrids(angles * 180/np.pi, labels)
+    ax.grid(True)
+
+    st.pyplot(fig)
