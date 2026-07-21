@@ -77,7 +77,7 @@ with col1:
         st.write("Strong habit! Keep going.")
 
 # -----------------------------
-# Radar Chart
+# Radar Chart (FIXED VERSION)
 # -----------------------------
 with col2:
     st.subheader("📈 Habit Profile Radar Chart")
@@ -85,15 +85,20 @@ with col2:
     labels = ["Difficulty", "Reward", "Consistency", "Time Cost", "Motivation", "Friction"]
     values = [difficulty, reward, consistency, time_cost, motivation, friction]
 
+    # Base angles (6 values)
     angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
-    values = np.concatenate((values, [values[0]]))
-    angles = np.concatenate((angles, [angles[0]]))
+
+    # Duplicate first value for closing the shape
+    values_full = np.concatenate((values, [values[0]]))
+    angles_full = np.concatenate((angles, [angles[0]]))
 
     fig = plt.figure(figsize=(6,6))
     ax = fig.add_subplot(111, polar=True)
-    ax.plot(angles, values, "o-", linewidth=2)
-    ax.fill(angles, values, alpha=0.25)
-    ax.set_thetagrids(angles * 180/np.pi, labels)
-    ax.grid(True)
+    ax.plot(angles_full, values_full, "o-", linewidth=2)
+    ax.fill(angles_full, values_full, alpha=0.25)
 
+    # FIX: Use angles WITHOUT the duplicate for labels
+    ax.set_thetagrids(angles * 180/np.pi, labels)
+
+    ax.grid(True)
     st.pyplot(fig)
